@@ -1,0 +1,825 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "pia"]
+}
+
+// =============================================================================
+// PUBLIC SCHEMA — existing models (tracking, auth, offices, officers)
+// =============================================================================
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String
+  mobile       String?
+  pan          String?
+  iec          String?
+  gstin        String?
+  role         Role     @default(USER)
+  refreshToken String?
+  officeId     String?  @unique
+  officerId    String?  @unique
+  office       Office?  @relation(fields: [officeId], references: [id])
+  officer      Officer? @relation(fields: [officerId], references: [id])
+  applications Application[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+  @@schema("public")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  EIA_ADMIN
+  SUB_EIA_ADMIN
+  OFFICER
+
+  @@schema("public")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  userName    String?
+  userEmail   String?
+  action      String
+  description String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+  @@schema("public")
+}
+
+enum OfficeType {
+  EIC
+  EIA
+  SUB_EIA
+
+  @@schema("public")
+}
+
+model Office {
+  id          String     @id @default(uuid())
+  name        String
+  code        String     @unique
+  type        OfficeType
+  parentId    String?
+  parent      Office?    @relation("OfficeHierarchy", fields: [parentId], references: [id])
+  children    Office[]   @relation("OfficeHierarchy")
+  address     String?
+  state       String?
+  district    String?
+  subDistrict String?
+  city        String?
+  pincode     String?
+  phone       String?
+  email       String?
+  hasLab      Boolean    @default(false)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  officers     OfficerOffice[]
+  user         User?
+  applications Application[]
+
+  @@map("offices")
+  @@schema("public")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+
+  @@schema("public")
+}
+
+model Officer {
+  id            String    @id @default(uuid())
+  name          String
+  qualification String
+  designation   String
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  telephone     String?
+  mobile        String?
+  email         String?
+  gender        Gender    @default(MALE)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  offices  OfficerOffice[]
+  products OfficerProduct[]
+  user     User?
+
+  @@map("officers")
+  @@schema("public")
+}
+
+model CertificateProduct {
+  id        String @id @default(uuid())
+  name      String @unique
+  category  String?
+  sortOrder Int    @default(0)
+
+  officers OfficerProduct[]
+
+  @@map("certificate_products")
+  @@schema("public")
+}
+
+model OfficerOffice {
+  officerId String
+  officeId  String
+  officer   Officer @relation(fields: [officerId], references: [id], onDelete: Cascade)
+  office    Office  @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@id([officerId, officeId])
+  @@map("officer_offices")
+  @@schema("public")
+}
+
+model OfficerProduct {
+  officerId String
+  productId String
+  officer   Officer            @relation(fields: [officerId], references: [id], onDelete: Cascade)
+  product   CertificateProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([officerId, productId])
+  @@map("officer_products")
+  @@schema("public")
+}
+
+enum ApplicationType {
+  ESTABLISHMENT
+  PIA
+
+  @@schema("public")
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  DEFICIENT
+  DEFICIENCY_RESPONDED
+  APPROVED
+  REJECTED
+  COA_ISSUED
+
+  @@schema("public")
+}
+
+// Base application — lightweight tracking record for all application types
+model Application {
+  id            String            @id @default(uuid())
+  appNo         String            @unique
+  type          ApplicationType
+  status        ApplicationStatus @default(DRAFT)
+  organisation  String
+  applicantName String
+  userId        String?
+  officeId      String?
+  submittedAt   DateTime?
+  remarks       String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  user           User?            @relation(fields: [userId], references: [id])
+  office         Office?          @relation(fields: [officeId], references: [id])
+  piaApplication PIAApplication?
+
+  @@map("applications")
+  @@schema("public")
+}
+
+model OtpVerification {
+  id        String   @id @default(uuid())
+  email     String
+  mobile    String
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("otp_verifications")
+  @@schema("public")
+}
+
+// =============================================================================
+// PIA SCHEMA — dedicated tables for PIA Recognition System
+// =============================================================================
+
+enum PIASubType {
+  NEW_RECOGNITION
+  RENEWAL
+  MODIFICATION
+
+  @@schema("pia")
+}
+
+// All 36 statuses from the SRS
+enum PIAStatus {
+  DRAFT
+  SUBMITTED
+  APPLICATION_FEE_PENDING
+  APPLICATION_FEE_PAID
+  RECEIVED_BY_EIA
+  FORWARDED_TO_EIC
+  UNDER_DOCUMENT_SCRUTINY
+  DISCREPANCY_RAISED
+  RESUBMITTED_BY_APPLICANT
+  SCRUTINY_COMPLETED
+  INSPECTION_OFFICER_NOMINATED
+  INSPECTION_FEE_PENDING
+  INSPECTION_FEE_PAID
+  INSPECTION_SCHEDULED
+  INSPECTION_COMPLETED
+  NON_CONFORMITY_RAISED
+  CLOSURE_SUBMITTED
+  CLOSURE_UNDER_REVIEW
+  REPORT_SUBMITTED_TO_EIC
+  UNDER_FINAL_REVIEW
+  APPROVED_BY_EIC
+  REJECTED
+  GAZETTE_NOTIFICATION_PREPARED
+  SHARED_WITH_MINISTRY
+  ANNUAL_FEE_PENDING
+  ANNUAL_FEE_PAID
+  GAZETTE_PUBLISHED
+  PIA_CODE_REQUESTED
+  PIA_CODE_GENERATED
+  ACTIVE
+  RENEWAL_DUE
+  RENEWED
+  MODIFICATION_UNDER_PROCESS
+  SUSPENDED
+  EXPIRED
+  WITHDRAWN
+
+  @@schema("pia")
+}
+
+enum LegalStatusType {
+  PROPRIETORSHIP
+  PARTNERSHIP
+  LLP
+  PRIVATE_LIMITED
+  PUBLIC_LIMITED
+  TRUST
+  SOCIETY
+  OTHER
+
+  @@schema("pia")
+}
+
+enum QMSType {
+  ISO_17020
+  ISO_9001
+  BOTH
+  NONE
+
+  @@schema("pia")
+}
+
+enum DocumentStatus {
+  PENDING
+  UPLOADED
+  ACCEPTED
+  REJECTED
+
+  @@schema("pia")
+}
+
+enum PaymentType {
+  APPLICATION_FEE
+  ADDITIONAL_PORT_FEE
+  INSPECTION_FEE
+  ANNUAL_FEE
+
+  @@schema("pia")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+
+  @@schema("pia")
+}
+
+enum NCStatus {
+  OPEN
+  CLOSURE_SUBMITTED
+  CLOSED
+  RERAISED
+
+  @@schema("pia")
+}
+
+enum DiscrepancyStatus {
+  RAISED
+  RESPONDED
+  CLOSED
+
+  @@schema("pia")
+}
+
+enum ModificationType {
+  ADD_PORT
+  ADD_MINERAL_ORE
+  ADD_BRANCH_LOCATION
+  ADD_LABORATORY
+  CHANGE_SCOPE
+  OTHER
+
+  @@schema("pia")
+}
+
+// -----------------------------------------------------------------------------
+// Master tables
+// -----------------------------------------------------------------------------
+
+model PIAPort {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  code     String? @unique
+  state    String?
+  isActive Boolean @default(true)
+
+  applicationPorts PIAApplicationPort[]
+
+  @@map("pia_ports")
+  @@schema("pia")
+}
+
+model PIAMineralOre {
+  id       String  @id @default(uuid())
+  name     String  @unique
+  code     String?
+  hsCode   String?
+  isActive Boolean @default(true)
+
+  applicationScopes PIAApplicationScope[]
+
+  @@map("pia_mineral_ores")
+  @@schema("pia")
+}
+
+// -----------------------------------------------------------------------------
+// Main PIA Application — full form data, references public.applications
+// -----------------------------------------------------------------------------
+
+model PIAApplication {
+  id            String     @id @default(uuid())
+  applicationId String     @unique
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  subType   PIASubType @default(NEW_RECOGNITION)
+  piaStatus PIAStatus  @default(DRAFT)
+
+  // Part I — General Information
+  agencyNameHindi      String?
+  headOfficeAddress    String?
+  headOfficeState      String?
+  headOfficeDistrict   String?
+  headOfficeCity       String?
+  headOfficePincode    String?
+  headOfficeCountry    String?  @default("India")
+  headOfficePhone      String?
+  headOfficeFax        String?
+  headOfficeEmail      String?
+  headOfOrgName        String?
+  headOfOrgDesignation String?
+  headOfOrgContact     String?
+  legalStatus          LegalStatusType?
+  legalStatusDetails   String?
+
+  // Inspection Division contact
+  inspectionDivHeadName        String?
+  inspectionDivHeadDesignation String?
+  inspectionDivPhone           String?
+  inspectionDivEmail           String?
+
+  // Laboratory Division contact
+  labDivHeadName        String?
+  labDivHeadDesignation String?
+  labDivPhone           String?
+  labDivEmail           String?
+
+  // Part II — Inspection Details
+  seniorMgmtCount      Int?
+  inspectingStaffCount Int?
+  qmsImplemented       Boolean  @default(false)
+  qmsType              QMSType?
+  isAccredited         Boolean  @default(false)
+  accreditationScope   String?
+  accreditationBody    String?
+  consultancyDetails   String?
+  hasDomesticExperience Boolean @default(false)
+  hasExportExperience   Boolean @default(false)
+
+  // Laboratory Capability
+  hasLaboratory         Boolean @default(false)
+  hasLabAccreditation   Boolean @default(false)
+  labAccreditationType  String?
+  labAccreditationScope String?
+  labConsultancyDetails String?
+
+  // Additional Information
+  hasOtherActivities       Boolean @default(false)
+  otherActivitiesDetails   String?
+  hasLinkedOrganization    Boolean @default(false)
+  linkedOrgDetails         String?
+  hasRelatedActivities     Boolean @default(false)
+  relatedActivitiesDetails String?
+  hasDisputesWithClients   Boolean @default(false)
+  disputesDetails          String?
+  hasCriminalProceedings   Boolean @default(false)
+  criminalProceedingsDetails String?
+
+  // Scope / Recognition
+  recognitionPeriod       Int?      // in years, max 3
+  recognitionValidityDate DateTime? // existing validity date (for renewal)
+  existingRecognitionNo   String?   // for renewal / modification
+  modificationType        ModificationType?
+
+  // Officer nominated by EIC
+  nominatedOfficerId   String?
+  nominatedOfficerName String?
+  nominatedAt          DateTime?
+
+  // Inspection scheduling
+  inspectionScheduledDate DateTime?
+  inspectionCompletedDate DateTime?
+
+  // Final decision
+  finalRemarks String?
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Relations
+  ports               PIAApplicationPort[]
+  scopes              PIAApplicationScope[]
+  branches            PIABranch[]
+  inspectionManpower  PIAManpower[]
+  labManpower         PIALabManpower[]
+  documents           PIADocument[]
+  discrepancies       PIADiscrepancy[]
+  nonConformities     PIANonConformity[]
+  inspectionReports   PIAInspectionReport[]
+  payments            PIAPayment[]
+  annualFees          PIAAnnualFee[]
+  gazette             PIAGazette?
+  piaCode             PIACode?
+  quarterlyStatements PIAQuarterlyStatement[]
+  statusHistory       PIAStatusHistory[]
+
+  @@map("pia_applications")
+  @@schema("pia")
+}
+
+// Ports selected in the application (BR-001: first = default, BR-002: extra fee for rest)
+model PIAApplicationPort {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  portId           String
+  isDefault        Boolean        @default(false)
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+  port             PIAPort        @relation(fields: [portId], references: [id])
+
+  @@unique([piaApplicationId, portId])
+  @@map("pia_application_ports")
+  @@schema("pia")
+}
+
+// Mineral / Ore scope selected
+model PIAApplicationScope {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  mineralOreId     String
+  specifications   String?
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+  mineralOre       PIAMineralOre  @relation(fields: [mineralOreId], references: [id])
+
+  @@unique([piaApplicationId, mineralOreId])
+  @@map("pia_application_scopes")
+  @@schema("pia")
+}
+
+// Branch / Location details (multiple allowed)
+model PIABranch {
+  id                      String         @id @default(uuid())
+  piaApplicationId        String
+  branchName              String
+  address                 String?
+  state                   String?
+  district                String?
+  city                    String?
+  pincode                 String?
+  phone                   String?
+  email                   String?
+  headOfBranchName        String?
+  headOfBranchDesignation String?
+  piaApplication          PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_branches")
+  @@schema("pia")
+}
+
+// Inspection Division manpower — Annexure-4
+model PIAManpower {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  isSeniorMgmt     Boolean        @default(false)
+  name             String
+  designation      String
+  qualification    String?
+  experienceYears  Int?
+  specialization   String?
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_manpower")
+  @@schema("pia")
+}
+
+// Lab / Testing staff manpower
+model PIALabManpower {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  isSeniorMgmt     Boolean        @default(false)
+  name             String
+  designation      String
+  qualification    String?
+  experienceYears  Int?
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_lab_manpower")
+  @@schema("pia")
+}
+
+// Document uploads with version tracking
+model PIADocument {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  documentType     String         // e.g. QUALITY_MANUAL, ISO_17020, ACCREDITATION_CERT, LEGAL_STATUS, ADDRESS_PROOF, etc.
+  documentName     String
+  fileName         String
+  filePath         String
+  fileSize         Int?
+  mimeType         String?
+  version          Int            @default(1)
+  status           DocumentStatus @default(UPLOADED)
+  rejectionReason  String?
+  uploadedAt       DateTime       @default(now())
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_documents")
+  @@schema("pia")
+}
+
+// Discrepancies raised by EIC during document scrutiny (multi-cycle: BR-005)
+model PIADiscrepancy {
+  id                String            @id @default(uuid())
+  piaApplicationId  String
+  raisedByUserId    String?
+  raisedByName      String?
+  documentType      String?
+  description       String
+  status            DiscrepancyStatus @default(RAISED)
+  applicantResponse String?
+  raisedAt          DateTime          @default(now())
+  respondedAt       DateTime?
+  closedAt          DateTime?
+  piaApplication    PIAApplication    @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_discrepancies")
+  @@schema("pia")
+}
+
+// Non-Conformities raised by Inspection Officer during audit (multi-cycle: BR-006)
+model PIANonConformity {
+  id                String         @id @default(uuid())
+  piaApplicationId  String
+  raisedByOfficerId String?
+  raisedByName      String?
+  ncNumber          String?
+  description       String
+  evidenceDetails   String?
+  clauseReference   String?
+  status            NCStatus       @default(OPEN)
+  closureDeadline   DateTime?
+  raisedAt          DateTime       @default(now())
+  closedAt          DateTime?
+  piaApplication    PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+  closures          PIANCClosure[]
+
+  @@map("pia_non_conformities")
+  @@schema("pia")
+}
+
+// NC Closure submissions — one NC can have multiple closure cycles
+model PIANCClosure {
+  id               String           @id @default(uuid())
+  nonConformityId  String
+  submittedByUserId String?
+  closureResponse  String
+  attachmentPath   String?
+  isAccepted       Boolean?
+  reviewedByName   String?
+  reviewedAt       DateTime?
+  reviewRemarks    String?
+  submittedAt      DateTime         @default(now())
+  nonConformity    PIANonConformity @relation(fields: [nonConformityId], references: [id], onDelete: Cascade)
+
+  @@map("pia_nc_closures")
+  @@schema("pia")
+}
+
+// Inspection / Audit reports uploaded by officer
+model PIAInspectionReport {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  officerId        String?
+  officerName      String?
+  reportType       String         // ADEQUACY_AUDIT | ON_SITE_AUDIT
+  reportPath       String?
+  observations     String?
+  recommendation   String?        // APPROVE | REJECT | CONDITIONAL
+  proposedValidity Int?           // years recommended
+  submittedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_inspection_reports")
+  @@schema("pia")
+}
+
+// Payments — covers all fee types (BR-003, BR-004, BR-008)
+model PIAPayment {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  paymentType      PaymentType
+  amount           Decimal        @db.Decimal(10, 2)
+  gstAmount        Decimal?       @db.Decimal(10, 2)
+  totalAmount      Decimal        @db.Decimal(10, 2)
+  currency         String         @default("INR")
+  status           PaymentStatus  @default(PENDING)
+  transactionId    String?        @unique
+  gatewayOrderId   String?
+  gatewayResponse  Json?
+  receiptNo        String?        @unique
+  receiptPath      String?
+  invoicePath      String?
+  paidAt           DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_payments")
+  @@schema("pia")
+}
+
+// Annual fee year-wise tracking — Rs 50,000/year (BR-007, BR-008)
+model PIAAnnualFee {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  year             Int
+  amount           Decimal        @db.Decimal(10, 2)
+  status           PaymentStatus  @default(PENDING)
+  transactionId    String?
+  receiptPath      String?
+  dueDate          DateTime?
+  paidAt           DateTime?
+  createdAt        DateTime       @default(now())
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@unique([piaApplicationId, year])
+  @@map("pia_annual_fees")
+  @@schema("pia")
+}
+
+// Gazette Notification — Hindi + English (BR-007: annual fee opens after Ministry sharing)
+model PIAGazette {
+  id                   String         @id @default(uuid())
+  piaApplicationId     String         @unique
+  notificationHindi    String?        @db.Text
+  notificationEnglish  String?        @db.Text
+  preparedByName       String?
+  preparedAt           DateTime?
+  sharedWithMinistryAt DateTime?
+  applicantInformedAt  DateTime?
+  publicationDate      DateTime?
+  gazetteNo            String?
+  gazetteFilePath      String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  piaApplication       PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_gazette")
+  @@schema("pia")
+}
+
+// PIA Code / Certificate Number — issued after gazette publication (BR-009)
+model PIACode {
+  id               String         @id @default(uuid())
+  piaApplicationId String         @unique
+  piaCode          String?        @unique
+  certificateNo    String?        @unique
+  requestedAt      DateTime?
+  issuedAt         DateTime?
+  issuedByName     String?
+  validFrom        DateTime?
+  validTo          DateTime?
+  certificatePath  String?
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_codes")
+  @@schema("pia")
+}
+
+// Quarterly statements — mandatory for active PIAs (BR-012)
+model PIAQuarterlyStatement {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  quarter          Int            // 1, 2, 3, 4
+  year             Int
+  inspectionCount  Int            @default(0)
+  remarks          String?
+  attachmentPath   String?
+  submittedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@unique([piaApplicationId, quarter, year])
+  @@map("pia_quarterly_statements")
+  @@schema("pia")
+}
+
+// Fee configuration — admin-managed amounts per payment type
+model PIAFeeConfig {
+  id          String      @id @default(uuid())
+  feeType     PaymentType
+  label       String
+  amount      Decimal     @db.Decimal(10, 2)
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([feeType])
+  @@map("pia_fee_config")
+  @@schema("pia")
+}
+
+// Document checklist — admin-managed required documents per application sub-type
+model PIADocumentChecklist {
+  id            String     @id @default(uuid())
+  subType       PIASubType
+  documentType  String
+  documentLabel String
+  description   String?
+  isMandatory   Boolean    @default(true)
+  sortOrder     Int        @default(0)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([subType, documentType])
+  @@map("pia_document_checklist")
+  @@schema("pia")
+}
+
+// Full audit trail of every status change per application
+model PIAStatusHistory {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  fromStatus       PIAStatus?
+  toStatus         PIAStatus
+  changedByUserId  String?
+  changedByName    String?
+  remarks          String?
+  changedAt        DateTime       @default(now())
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_status_history")
+  @@schema("pia")
+}

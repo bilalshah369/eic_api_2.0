@@ -14,4 +14,4 @@ export const sendError = (
   statusCode = 500,
   errors?: unknown
 ) =>
-  res.status(statusCode).json({ success: false, message, ...(errors && { errors }) });
+  res.status(statusCode).json({ success: false, message, ...(errors ? { errors } : {}) });

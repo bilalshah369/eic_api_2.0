@@ -481,6 +481,8 @@ model PIAApplication {
   branches            PIABranch[]
   inspectionManpower  PIAManpower[]
   labManpower         PIALabManpower[]
+  labEquipment        PIALabEquipment[]
+  labProducts         PIALabProduct[]
   documents           PIADocument[]
   discrepancies       PIADiscrepancy[]
   nonConformities     PIANonConformity[]
@@ -572,6 +574,35 @@ model PIALabManpower {
   piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
 
   @@map("pia_lab_manpower")
+  @@schema("pia")
+}
+
+// Lab equipment list — Annexure-3
+model PIALabEquipment {
+  id                 String         @id @default(uuid())
+  piaApplicationId   String
+  name               String         // Equipment / Instrument name
+  make               String?        // Manufacturer
+  model              String?        // Model / Type
+  serialNo           String?        // Serial No. / ID No.
+  rangeCapacity      String?        // Range / Capacity
+  calibrationDueDate String?        // Calibration due date (free text, e.g. "Mar 2026")
+  piaApplication     PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_lab_equipment")
+  @@schema("pia")
+}
+
+// Products / commodities tested in the in-house lab
+model PIALabProduct {
+  id               String         @id @default(uuid())
+  piaApplicationId String
+  productName      String
+  testParameters   String?        // Parameters tested
+  testMethods      String?        // Test methods / standards (e.g. IS, BIS, ASTM)
+  piaApplication   PIAApplication @relation(fields: [piaApplicationId], references: [id], onDelete: Cascade)
+
+  @@map("pia_lab_products")
   @@schema("pia")
 }
 

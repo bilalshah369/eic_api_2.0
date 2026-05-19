@@ -76,7 +76,7 @@ export const officerService = {
     return officer;
   },
 
-  async create(data: CreateOfficerDto): Promise<{ officer: object; credentials?: LoginCredentials }> {
+  async create(data: CreateOfficerDto): Promise<{ officer: { id: string; [key: string]: unknown }; credentials?: LoginCredentials }> {
     const officer = await prisma.officer.create({ data, select: { ...OFFICER_SELECT, id: true } });
 
     if (data.email) {

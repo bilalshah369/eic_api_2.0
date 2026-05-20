@@ -1,4 +1,55 @@
+-- =====================================================================
+-- Fill in missing public schema items (added manually to dev DB)
+-- =====================================================================
+
+-- Missing Role enum values
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'EIA_ADMIN';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'SUB_EIA_ADMIN';
+ALTER TYPE "Role" ADD VALUE IF NOT EXISTS 'OFFICER';
+
+-- Missing columns on users
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "officeId" TEXT;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "officerId" TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS "users_officeId_key" ON "users"("officeId");
+CREATE UNIQUE INDEX IF NOT EXISTS "users_officerId_key" ON "users"("officerId");
+ALTER TABLE "users" ADD CONSTRAINT "users_officeId_fkey"
+  FOREIGN KEY ("officeId") REFERENCES "offices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "users" ADD CONSTRAINT "users_officerId_fkey"
+  FOREIGN KEY ("officerId") REFERENCES "officers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Application enums
+CREATE TYPE "ApplicationType" AS ENUM ('ESTABLISHMENT', 'PIA');
+CREATE TYPE "ApplicationStatus" AS ENUM (
+  'DRAFT', 'SUBMITTED', 'DEFICIENT', 'DEFICIENCY_RESPONDED',
+  'APPROVED', 'REJECTED', 'COA_ISSUED'
+);
+
+-- Applications table
+CREATE TABLE "applications" (
+  "id" TEXT NOT NULL,
+  "appNo" TEXT NOT NULL,
+  "type" "ApplicationType" NOT NULL,
+  "status" "ApplicationStatus" NOT NULL DEFAULT 'DRAFT',
+  "organisation" TEXT NOT NULL,
+  "applicantName" TEXT NOT NULL,
+  "userId" TEXT,
+  "officeId" TEXT,
+  "submittedAt" TIMESTAMP(3),
+  "remarks" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "applications_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX "applications_appNo_key" ON "applications"("appNo");
+ALTER TABLE "applications" ADD CONSTRAINT "applications_userId_fkey"
+  FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "applications" ADD CONSTRAINT "applications_officeId_fkey"
+  FOREIGN KEY ("officeId") REFERENCES "offices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- =====================================================================
 -- Create PIA schema
+-- =====================================================================
+
 CREATE SCHEMA IF NOT EXISTS "pia";
 
 -- Enums
@@ -24,22 +75,13 @@ CREATE TYPE "pia"."LegalStatusType" AS ENUM (
 );
 
 CREATE TYPE "pia"."QMSType" AS ENUM ('ISO_17020', 'ISO_9001', 'BOTH', 'NONE');
-
 CREATE TYPE "pia"."DocumentStatus" AS ENUM ('PENDING', 'UPLOADED', 'ACCEPTED', 'REJECTED');
-
-CREATE TYPE "pia"."PaymentType" AS ENUM (
-  'APPLICATION_FEE', 'ADDITIONAL_PORT_FEE', 'INSPECTION_FEE', 'ANNUAL_FEE'
-);
-
+CREATE TYPE "pia"."PaymentType" AS ENUM ('APPLICATION_FEE', 'ADDITIONAL_PORT_FEE', 'INSPECTION_FEE', 'ANNUAL_FEE');
 CREATE TYPE "pia"."PaymentStatus" AS ENUM ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED');
-
 CREATE TYPE "pia"."NCStatus" AS ENUM ('OPEN', 'CLOSURE_SUBMITTED', 'CLOSED', 'RERAISED');
-
 CREATE TYPE "pia"."DiscrepancyStatus" AS ENUM ('RAISED', 'RESPONDED', 'CLOSED');
-
 CREATE TYPE "pia"."ModificationType" AS ENUM (
-  'ADD_PORT', 'ADD_MINERAL_ORE', 'ADD_BRANCH_LOCATION', 'ADD_LABORATORY',
-  'CHANGE_SCOPE', 'OTHER'
+  'ADD_PORT', 'ADD_MINERAL_ORE', 'ADD_BRANCH_LOCATION', 'ADD_LABORATORY', 'CHANGE_SCOPE', 'OTHER'
 );
 
 -- Master tables
@@ -137,7 +179,6 @@ CREATE TABLE "pia"."pia_applications" (
 );
 CREATE UNIQUE INDEX "pia_applications_applicationId_key" ON "pia"."pia_applications"("applicationId");
 
--- Junction tables
 CREATE TABLE "pia"."pia_application_ports" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -156,7 +197,6 @@ CREATE TABLE "pia"."pia_application_scopes" (
 );
 CREATE UNIQUE INDEX "pia_application_scopes_piaApplicationId_mineralOreId_key" ON "pia"."pia_application_scopes"("piaApplicationId", "mineralOreId");
 
--- Branches
 CREATE TABLE "pia"."pia_branches" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -173,7 +213,6 @@ CREATE TABLE "pia"."pia_branches" (
   CONSTRAINT "pia_branches_pkey" PRIMARY KEY ("id")
 );
 
--- Manpower
 CREATE TABLE "pia"."pia_manpower" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -197,7 +236,6 @@ CREATE TABLE "pia"."pia_lab_manpower" (
   CONSTRAINT "pia_lab_manpower_pkey" PRIMARY KEY ("id")
 );
 
--- Documents
 CREATE TABLE "pia"."pia_documents" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -214,7 +252,6 @@ CREATE TABLE "pia"."pia_documents" (
   CONSTRAINT "pia_documents_pkey" PRIMARY KEY ("id")
 );
 
--- Discrepancies
 CREATE TABLE "pia"."pia_discrepancies" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -230,7 +267,6 @@ CREATE TABLE "pia"."pia_discrepancies" (
   CONSTRAINT "pia_discrepancies_pkey" PRIMARY KEY ("id")
 );
 
--- Non-conformities
 CREATE TABLE "pia"."pia_non_conformities" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -261,7 +297,6 @@ CREATE TABLE "pia"."pia_nc_closures" (
   CONSTRAINT "pia_nc_closures_pkey" PRIMARY KEY ("id")
 );
 
--- Inspection reports
 CREATE TABLE "pia"."pia_inspection_reports" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -278,7 +313,6 @@ CREATE TABLE "pia"."pia_inspection_reports" (
   CONSTRAINT "pia_inspection_reports_pkey" PRIMARY KEY ("id")
 );
 
--- Payments
 CREATE TABLE "pia"."pia_payments" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -302,7 +336,6 @@ CREATE TABLE "pia"."pia_payments" (
 CREATE UNIQUE INDEX "pia_payments_transactionId_key" ON "pia"."pia_payments"("transactionId");
 CREATE UNIQUE INDEX "pia_payments_receiptNo_key" ON "pia"."pia_payments"("receiptNo");
 
--- Annual fees
 CREATE TABLE "pia"."pia_annual_fees" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -318,7 +351,6 @@ CREATE TABLE "pia"."pia_annual_fees" (
 );
 CREATE UNIQUE INDEX "pia_annual_fees_piaApplicationId_year_key" ON "pia"."pia_annual_fees"("piaApplicationId", "year");
 
--- Gazette
 CREATE TABLE "pia"."pia_gazette" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -337,7 +369,6 @@ CREATE TABLE "pia"."pia_gazette" (
 );
 CREATE UNIQUE INDEX "pia_gazette_piaApplicationId_key" ON "pia"."pia_gazette"("piaApplicationId");
 
--- PIA Codes
 CREATE TABLE "pia"."pia_codes" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -355,7 +386,6 @@ CREATE UNIQUE INDEX "pia_codes_piaApplicationId_key" ON "pia"."pia_codes"("piaAp
 CREATE UNIQUE INDEX "pia_codes_piaCode_key" ON "pia"."pia_codes"("piaCode");
 CREATE UNIQUE INDEX "pia_codes_certificateNo_key" ON "pia"."pia_codes"("certificateNo");
 
--- Quarterly statements
 CREATE TABLE "pia"."pia_quarterly_statements" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,
@@ -370,7 +400,6 @@ CREATE TABLE "pia"."pia_quarterly_statements" (
 );
 CREATE UNIQUE INDEX "pia_quarterly_statements_piaApplicationId_quarter_year_key" ON "pia"."pia_quarterly_statements"("piaApplicationId", "quarter", "year");
 
--- Fee config
 CREATE TABLE "pia"."pia_fee_config" (
   "id" TEXT NOT NULL,
   "feeType" "pia"."PaymentType" NOT NULL,
@@ -384,7 +413,6 @@ CREATE TABLE "pia"."pia_fee_config" (
 );
 CREATE UNIQUE INDEX "pia_fee_config_feeType_key" ON "pia"."pia_fee_config"("feeType");
 
--- Document checklist
 CREATE TABLE "pia"."pia_document_checklist" (
   "id" TEXT NOT NULL,
   "subType" "pia"."PIASubType" NOT NULL,
@@ -400,7 +428,6 @@ CREATE TABLE "pia"."pia_document_checklist" (
 );
 CREATE UNIQUE INDEX "pia_document_checklist_subType_documentType_key" ON "pia"."pia_document_checklist"("subType", "documentType");
 
--- Status history
 CREATE TABLE "pia"."pia_status_history" (
   "id" TEXT NOT NULL,
   "piaApplicationId" TEXT NOT NULL,

@@ -72,7 +72,7 @@ export async function getSchemas(_req: Request, res: Response) {
 
 export async function getTables(req: Request, res: Response) {
   const { schema } = req.params;
-  if (!safeIdent(schema)) return fail(res, 'Invalid schema name');
+  if (!safeIdent(schema)) fail(res, 'Invalid schema name'); return;
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
@@ -94,7 +94,7 @@ export async function getTables(req: Request, res: Response) {
 
 export async function getColumns(req: Request, res: Response) {
   const { schema, table } = req.params;
-  if (!safeIdent(schema) || !safeIdent(table)) return fail(res, 'Invalid identifier');
+  if (!safeIdent(schema) || !safeIdent(table)) fail(res, 'Invalid identifier'); return;
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
@@ -133,7 +133,7 @@ export async function getColumns(req: Request, res: Response) {
 
 export async function getIndexes(req: Request, res: Response) {
   const { schema, table } = req.params;
-  if (!safeIdent(schema) || !safeIdent(table)) return fail(res, 'Invalid identifier');
+  if (!safeIdent(schema) || !safeIdent(table)) fail(res, 'Invalid identifier'); return;
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
@@ -159,7 +159,7 @@ export async function getIndexes(req: Request, res: Response) {
 
 export async function getConstraints(req: Request, res: Response) {
   const { schema, table } = req.params;
-  if (!safeIdent(schema) || !safeIdent(table)) return fail(res, 'Invalid identifier');
+  if (!safeIdent(schema) || !safeIdent(table)) fail(res, 'Invalid identifier'); return;
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
@@ -198,7 +198,7 @@ export async function getConstraints(req: Request, res: Response) {
 
 export async function getTypes(req: Request, res: Response) {
   const { schema } = req.params;
-  if (!safeIdent(schema)) return fail(res, 'Invalid schema name');
+  if (!safeIdent(schema)) fail(res, 'Invalid schema name'); return;
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
@@ -231,7 +231,7 @@ export async function getTypes(req: Request, res: Response) {
 
 export async function getFunctions(req: Request, res: Response) {
   const { schema } = req.params;
-  if (!safeIdent(schema)) return fail(res, 'Invalid schema name');
+  if (!safeIdent(schema)) fail(res, 'Invalid schema name'); return;
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
@@ -254,7 +254,7 @@ export async function getFunctions(req: Request, res: Response) {
 
 export async function getSequences(req: Request, res: Response) {
   const { schema } = req.params;
-  if (!safeIdent(schema)) return fail(res, 'Invalid schema name');
+  if (!safeIdent(schema)) fail(res, 'Invalid schema name'); return;
   try {
     const rows = await prisma.$queryRawUnsafe<any[]>(`
       SELECT
@@ -279,7 +279,7 @@ export async function getSequences(req: Request, res: Response) {
 
 export async function getViewDefinition(req: Request, res: Response) {
   const { schema, view } = req.params;
-  if (!safeIdent(schema) || !safeIdent(view)) return fail(res, 'Invalid identifier');
+  if (!safeIdent(schema) || !safeIdent(view)) fail(res, 'Invalid identifier'); return;
   try {
     const [row] = await prisma.$queryRawUnsafe<any[]>(`
       SELECT table_name, view_definition
@@ -296,7 +296,7 @@ export async function getViewDefinition(req: Request, res: Response) {
 
 export async function getTableScript(req: Request, res: Response) {
   const { schema, table } = req.params;
-  if (!safeIdent(schema) || !safeIdent(table)) return fail(res, 'Invalid identifier');
+  if (!safeIdent(schema) || !safeIdent(table)) fail(res, 'Invalid identifier'); return;
   try {
     const columns = await prisma.$queryRawUnsafe<any[]>(`
       SELECT column_name, data_type, udt_name, is_nullable, column_default,
@@ -388,10 +388,8 @@ export async function addColumn(req: Request, res: Response) {
   const { schema, table } = req.params;
   const { columnName, dataType, nullable = true, defaultValue } = req.body;
 
-  if (!safeIdent(schema) || !safeIdent(table) || !safeIdent(columnName))
-    return fail(res, 'Invalid identifier');
-  if (!isValidDataType(String(dataType)))
-    return fail(res, `Invalid data type: ${dataType}`);
+  if (!safeIdent(schema) || !safeIdent(table) || !safeIdent(columnName)) { fail(res, 'Invalid identifier'); return; }
+  if (!isValidDataType(String(dataType))) { fail(res, `Invalid data type: ${dataType}`); return; }
 
   try {
     let sql = `ALTER TABLE ${qi(schema)}.${qi(table)} ADD COLUMN ${qi(columnName)} ${dataType}`;
@@ -412,8 +410,7 @@ export async function renameColumn(req: Request, res: Response) {
   const { schema, table } = req.params;
   const { oldName, newName } = req.body;
 
-  if (!safeIdent(schema) || !safeIdent(table) || !safeIdent(oldName) || !safeIdent(newName))
-    return fail(res, 'Invalid identifier');
+  if (!safeIdent(schema) || !safeIdent(table) || !safeIdent(oldName) || !safeIdent(newName)) { fail(res, 'Invalid identifier'); return; }
 
   try {
     await prisma.$executeRawUnsafe(

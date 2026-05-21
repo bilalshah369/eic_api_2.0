@@ -148,7 +148,6 @@ router.get('/officers',
           officer: {
             include: {
               user: { select: { id: true, email: true } },
-              products: { include: { product: { select: { id: true, name: true } } } },
             },
           },
         },
@@ -223,16 +222,6 @@ router.put('/officers/:id/assign-offices',
   }
 );
 
-router.put('/officers/:id/assign-products',
-  authorize('EIA_ADMIN', 'SUB_EIA_ADMIN'),
-  async (req: AuthRequest, res: Response, next: NextFunction) => {
-    try {
-      const { productIds } = req.body as { productIds: string[] };
-      const officer = await officerService.assignProducts(req.params.id, productIds ?? []);
-      sendSuccess(res, officer, 'Products assigned');
-    } catch (err) { next(err); }
-  }
-);
 
 // EIA's own offices + sub-offices (for officer assignment)
 router.get('/my-offices',
@@ -273,7 +262,6 @@ router.get('/officer/me',
           officer: {
             include: {
               offices: { include: { office: { select: { id: true, name: true, code: true, type: true } } } },
-              products: { include: { product: { select: { id: true, name: true, category: true } } } },
             },
           },
         },

@@ -89,16 +89,16 @@ export const officerController = {
     } catch (err) { next(err); }
   },
 
-  async assignProducts(req: AuthRequest, res: Response, next: NextFunction) {
+  async assignCategories(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      const { productIds } = req.body as { productIds: string[] };
-      const officer = await officerService.assignProducts(req.params.id, productIds ?? []);
+      const { categories } = req.body as { categories: string[] };
+      const officer = await officerService.assignCategories(req.params.id, categories ?? []);
       await auditService.log({
         userId: req.user!.userId, userEmail: req.user!.email,
-        action: 'UPDATE', description: `Officer products assigned: ${officer.name} (${productIds?.length ?? 0} products)`,
+        action: 'UPDATE', description: `Officer categories assigned: ${officer.name} (${categories?.length ?? 0} categories)`,
         ipAddress: ip(req),
       });
-      sendSuccess(res, officer, 'Products assigned');
+      sendSuccess(res, officer, 'Categories assigned');
     } catch (err) { next(err); }
   },
 

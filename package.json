@@ -11,7 +11,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:prod": "prisma migrate resolve --rolled-back 20260519085959_add_pia_schema || true && prisma migrate resolve --rolled-back 20260520100000_add_lab_equipment_products || true && prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed-offices": "ts-node prisma/seed-offices.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.13.0",

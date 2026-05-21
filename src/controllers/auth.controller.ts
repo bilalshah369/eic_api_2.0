@@ -105,4 +105,23 @@ export const authController = {
       next(err);
     }
   },
+
+  async changePassword(req: AuthRequest, res: Response, next: NextFunction) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      await authService.changePassword(req.user!.userId, currentPassword, newPassword);
+
+      await auditService.log({
+        userId:    req.user!.userId,
+        userEmail: req.user!.email,
+        action:    'PASSWORD_CHANGED',
+        description: 'User changed their password',
+        ipAddress: ip(req),
+      });
+
+      sendSuccess(res, null, 'Password changed successfully');
+    } catch (err) {
+      next(err);
+    }
+  },
 };

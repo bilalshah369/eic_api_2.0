@@ -35,7 +35,7 @@ const OFFICER_SELECT = {
   address: true, city: true, state: true, pincode: true,
   telephone: true, mobile: true, email: true, gender: true,
   isActive: true, createdAt: true,
-  _count: { select: { offices: true, products: true } },
+  _count: { select: { offices: true, categories: true } },
 };
 
 export const officerService = {
@@ -68,8 +68,8 @@ export const officerService = {
     const officer = await prisma.officer.findUnique({
       where: { id },
       include: {
-        offices: { include: { office: { select: { id: true, name: true, code: true, type: true } } } },
-        products: { include: { product: { select: { id: true, name: true, category: true } } } },
+        offices:    { include: { office: { select: { id: true, name: true, code: true, type: true } } } },
+        categories: { select: { category: true }, orderBy: { category: 'asc' } },
       },
     });
     if (!officer) throw new AppError('Officer not found', 404);
@@ -135,14 +135,14 @@ export const officerService = {
     return officerService.getById(id);
   },
 
-  async assignProducts(id: string, productIds: string[]) {
+  async assignCategories(id: string, categories: string[]) {
     const existing = await prisma.officer.findUnique({ where: { id } });
     if (!existing) throw new AppError('Officer not found', 404);
 
     await prisma.$transaction([
-      prisma.officerProduct.deleteMany({ where: { officerId: id } }),
-      ...(productIds.length
-        ? [prisma.officerProduct.createMany({ data: productIds.map(productId => ({ officerId: id, productId })) })]
+      prisma.officerCategory.deleteMany({ where: { officerId: id } }),
+      ...(categories.length
+        ? [prisma.officerCategory.createMany({ data: categories.map(category => ({ officerId: id, category })) })]
         : []),
     ]);
 
@@ -162,12 +162,12 @@ export const officerService = {
     return prisma.certificateProduct.findMany({ orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }] });
   },
 
-  async createProduct(data: { name: string; category?: string; sortOrder?: number }) {
-    return prisma.certificateProduct.create({ data: { name: data.name.trim(), category: data.category?.trim() || null, sortOrder: data.sortOrder ?? 0 } });
+  async createProduct(data: { name: string; category?: string; hsCode?: string; sortOrder?: number }) {
+    return prisma.certificateProduct.create({ data: { name: data.name.trim(), category: data.category?.trim() || null, hsCode: data.hsCode?.trim() || null, sortOrder: data.sortOrder ?? 0 } });
   },
 
-  async updateProduct(id: string, data: { name?: string; category?: string; sortOrder?: number }) {
-    return prisma.certificateProduct.update({ where: { id }, data: { ...(data.name !== undefined && { name: data.name.trim() }), ...(data.category !== undefined && { category: data.category.trim() || null }), ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }) } });
+  async updateProduct(id: string, data: { name?: string; category?: string; hsCode?: string; sortOrder?: number }) {
+    return prisma.certificateProduct.update({ where: { id }, data: { ...(data.name !== undefined && { name: data.name.trim() }), ...(data.category !== undefined && { category: data.category.trim() || null }), ...(data.hsCode !== undefined && { hsCode: data.hsCode.trim() || null }), ...(data.sortOrder !== undefined && { sortOrder: data.sortOrder }) } });
   },
 
   async deleteProduct(id: string) {

@@ -44,9 +44,11 @@ const update = async (req: AuthRequest, res: Response, next: NextFunction): Prom
       headOfficePhone, headOfficeFax, headOfficeEmail,
       headOfOrgName, headOfOrgDesignation, headOfOrgContact,
       legalStatus, legalStatusDetails,
-      inspectionDivHeadName, inspectionDivHeadDesignation, inspectionDivPhone, inspectionDivEmail,
-      labDivHeadName, labDivHeadDesignation, labDivPhone, labDivEmail,
-      branches,
+      inspectionDivHeadName, inspectionDivHeadDesignation, inspectionDivPhone, inspectionDivFax, inspectionDivEmail,
+      labDivHeadName, labDivHeadDesignation, labDivPhone, labDivFax, labDivEmail,
+      recognitionValidityDate, recognitionPeriod, existingRecognitionNo,
+      hasCriminalProceedings, criminalProceedingsDetails,
+      branches, mineralScopes,
     } = req.body;
 
     const piaId = existing.piaApplication.id;
@@ -67,9 +69,14 @@ const update = async (req: AuthRequest, res: Response, next: NextFunction): Prom
           headOfOrgContact: headOfOrgContact?.trim() || null,
           legalStatus: legalStatus || null, legalStatusDetails: legalStatusDetails?.trim() || null,
           inspectionDivHeadName: inspectionDivHeadName?.trim() || null, inspectionDivHeadDesignation: inspectionDivHeadDesignation?.trim() || null,
-          inspectionDivPhone: inspectionDivPhone?.trim() || null, inspectionDivEmail: inspectionDivEmail?.trim() || null,
+          inspectionDivPhone: inspectionDivPhone?.trim() || null, inspectionDivFax: inspectionDivFax?.trim() || null, inspectionDivEmail: inspectionDivEmail?.trim() || null,
           labDivHeadName: labDivHeadName?.trim() || null, labDivHeadDesignation: labDivHeadDesignation?.trim() || null,
-          labDivPhone: labDivPhone?.trim() || null, labDivEmail: labDivEmail?.trim() || null,
+          labDivPhone: labDivPhone?.trim() || null, labDivFax: labDivFax?.trim() || null, labDivEmail: labDivEmail?.trim() || null,
+          ...(recognitionValidityDate ? { recognitionValidityDate: new Date(recognitionValidityDate) } : { recognitionValidityDate: null }),
+          ...(recognitionPeriod != null ? { recognitionPeriod: Number(recognitionPeriod) } : {}),
+          existingRecognitionNo: existingRecognitionNo?.trim() || null,
+          hasCriminalProceedings: hasCriminalProceedings ?? false,
+          criminalProceedingsDetails: hasCriminalProceedings ? (criminalProceedingsDetails?.trim() || null) : null,
         },
       });
       if (Array.isArray(branches)) {
@@ -80,8 +87,20 @@ const update = async (req: AuthRequest, res: Response, next: NextFunction): Prom
               piaApplicationId: piaId,
               branchName: b.branchName?.trim() || 'Branch', address: b.address?.trim() || null,
               state: b.state || null, district: b.district?.trim() || null, city: b.city?.trim() || null,
-              pincode: b.pincode?.trim() || null, phone: b.phone?.trim() || null, email: b.email?.trim() || null,
+              pincode: b.pincode?.trim() || null, phone: b.phone?.trim() || null, fax: b.fax?.trim() || null, email: b.email?.trim() || null,
               headOfBranchName: b.headOfBranchName?.trim() || null, headOfBranchDesignation: b.headOfBranchDesignation?.trim() || null,
+            })),
+          });
+        }
+      }
+      if (Array.isArray(mineralScopes)) {
+        await tx.pIAApplicationScope.deleteMany({ where: { piaApplicationId: piaId } });
+        if (mineralScopes.length > 0) {
+          await tx.pIAApplicationScope.createMany({
+            data: mineralScopes.map((s: any) => ({
+              piaApplicationId: piaId,
+              mineralOreId: s.mineralOreId,
+              specifications: s.specifications?.trim() || null,
             })),
           });
         }

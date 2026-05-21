@@ -67,4 +67,15 @@ export const authService = {
   async logout(userId: string) {
     await prisma.user.update({ where: { id: userId }, data: { refreshToken: null } });
   },
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new AppError('User not found', 404);
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) throw new AppError('Current password is incorrect', 400);
+
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await prisma.user.update({ where: { id: userId }, data: { password: hashed } });
+  },
 };

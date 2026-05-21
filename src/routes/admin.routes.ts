@@ -30,7 +30,7 @@ router.post('/officers',                        officerController.create);
 router.put('/officers/:id',                     officerController.update);
 router.delete('/officers/:id',                  officerController.delete);
 router.put('/officers/:id/assign-offices',       officerController.assignOffices);
-router.put('/officers/:id/assign-products',      officerController.assignProducts);
+router.put('/officers/:id/assign-categories',    officerController.assignCategories);
 router.post('/officers/:id/reset-login',         officerController.resetLogin);
 
 // ── PIA Masters ────────────────────────────────────────────────

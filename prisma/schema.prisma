@@ -123,21 +123,20 @@ model Officer {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  offices  OfficerOffice[]
-  products OfficerProduct[]
-  user     User?
+  offices     OfficerOffice[]
+  categories  OfficerCategory[]
+  user        User?
 
   @@map("officers")
   @@schema("public")
 }
 
 model CertificateProduct {
-  id        String @id @default(uuid())
-  name      String @unique
+  id        String  @id @default(uuid())
+  name      String  @unique
   category  String?
-  sortOrder Int    @default(0)
-
-  officers OfficerProduct[]
+  hsCode    String?
+  sortOrder Int     @default(0)
 
   @@map("certificate_products")
   @@schema("public")
@@ -154,14 +153,13 @@ model OfficerOffice {
   @@schema("public")
 }
 
-model OfficerProduct {
+model OfficerCategory {
   officerId String
-  productId String
-  officer   Officer            @relation(fields: [officerId], references: [id], onDelete: Cascade)
-  product   CertificateProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category  String
+  officer   Officer @relation(fields: [officerId], references: [id], onDelete: Cascade)
 
-  @@id([officerId, productId])
-  @@map("officer_products")
+  @@id([officerId, category])
+  @@map("officer_categories")
   @@schema("public")
 }
 
@@ -413,12 +411,14 @@ model PIAApplication {
   inspectionDivHeadName        String?
   inspectionDivHeadDesignation String?
   inspectionDivPhone           String?
+  inspectionDivFax             String?
   inspectionDivEmail           String?
 
   // Laboratory Division contact
   labDivHeadName        String?
   labDivHeadDesignation String?
   labDivPhone           String?
+  labDivFax             String?
   labDivEmail           String?
 
   // Part II — Inspection Details
@@ -537,6 +537,7 @@ model PIABranch {
   city                    String?
   pincode                 String?
   phone                   String?
+  fax                     String?
   email                   String?
   headOfBranchName        String?
   headOfBranchDesignation String?

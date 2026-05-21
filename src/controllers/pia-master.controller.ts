@@ -148,9 +148,58 @@ const deleteDocumentChecklist = async (req: Request, res: Response) => {
   res.json({ success: true });
 };
 
+// ─── Status Master ───────────────────────────────────────────────────────────
+
+const listStatusMaster = async (_req: Request, res: Response) => {
+  const items = await prisma.pIAStatusMaster.findMany({ orderBy: { sortOrder: 'asc' } });
+  res.json({ success: true, data: items });
+};
+
+const createStatusMaster = async (req: Request, res: Response): Promise<void> => {
+  const { code, label, description, phase, sortOrder, isActive } = req.body;
+  if (!code?.trim() || !label?.trim() || !phase?.trim()) {
+    res.status(400).json({ success: false, message: 'code, label and phase are required' }); return;
+  }
+  const existing = await prisma.pIAStatusMaster.findUnique({ where: { code: code.trim().toUpperCase() } });
+  if (existing) { res.status(409).json({ success: false, message: 'Status code already exists' }); return; }
+  const maxOrder = await prisma.pIAStatusMaster.aggregate({ _max: { sortOrder: true } });
+  const item = await prisma.pIAStatusMaster.create({
+    data: {
+      code: code.trim().toUpperCase(),
+      label: label.trim(),
+      description: description?.trim() || null,
+      phase: phase.trim(),
+      sortOrder: sortOrder ?? (maxOrder._max.sortOrder ?? 0) + 1,
+      isActive: isActive ?? true,
+    },
+  });
+  res.status(201).json({ success: true, data: item });
+};
+
+const updateStatusMaster = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { label, description, isActive, sortOrder } = req.body;
+  const item = await prisma.pIAStatusMaster.update({
+    where: { id },
+    data: {
+      ...(label !== undefined && { label: label.trim() }),
+      ...(description !== undefined && { description: description?.trim() || null }),
+      ...(isActive !== undefined && { isActive }),
+      ...(sortOrder !== undefined && { sortOrder }),
+    },
+  });
+  res.json({ success: true, data: item });
+};
+
+const deleteStatusMaster = async (req: Request, res: Response) => {
+  await prisma.pIAStatusMaster.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+};
+
 export const piaMasterController = {
   listMinerals, createMineral, updateMineral, deleteMineral,
   listPorts, createPort, updatePort, deletePort,
   listFeeConfig, upsertFeeConfig,
   listDocumentChecklist, createDocumentChecklist, updateDocumentChecklist, deleteDocumentChecklist,
+  listStatusMaster, createStatusMaster, updateStatusMaster, deleteStatusMaster,
 };

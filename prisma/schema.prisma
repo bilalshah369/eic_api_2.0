@@ -840,6 +840,22 @@ model PIADocumentChecklist {
   @@schema("pia")
 }
 
+// Application Status Master — SRS §13, admin-editable labels/descriptions
+model PIAStatusMaster {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  label       String
+  description String?
+  phase       String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pia_status_master")
+  @@schema("pia")
+}
+
 // Full audit trail of every status change per application
 model PIAStatusHistory {
   id               String         @id @default(uuid())

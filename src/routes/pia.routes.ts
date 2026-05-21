@@ -7,8 +7,9 @@ router.use(authenticate);
 router.use(authorize('USER'));
 
 // Masters (read-only lookups needed by the application form)
-router.get('/masters/ports',    piaApplicationController.getMasterPorts);
-router.get('/masters/minerals', piaApplicationController.getMasterMinerals);
+router.get('/masters/ports',        piaApplicationController.getMasterPorts);
+router.get('/masters/minerals',     piaApplicationController.getMasterMinerals);
+router.get('/masters/eia-offices',  piaApplicationController.getMasterEIAOffices);
 
 // Applications
 router.get('/applications',           piaApplicationController.list);

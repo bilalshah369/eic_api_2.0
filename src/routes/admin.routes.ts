@@ -52,4 +52,9 @@ router.post('/pia/document-checklist',         piaMasterController.createDocumen
 router.put('/pia/document-checklist/:id',      piaMasterController.updateDocumentChecklist);
 router.delete('/pia/document-checklist/:id',   piaMasterController.deleteDocumentChecklist);
 
+router.get('/pia/status-master',               piaMasterController.listStatusMaster);
+router.post('/pia/status-master',              piaMasterController.createStatusMaster);
+router.put('/pia/status-master/:id',           piaMasterController.updateStatusMaster);
+router.delete('/pia/status-master/:id',        piaMasterController.deleteStatusMaster);
+
 export default router;

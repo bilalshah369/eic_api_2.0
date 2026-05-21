@@ -49,13 +49,18 @@ const update = async (req: AuthRequest, res: Response, next: NextFunction): Prom
       recognitionValidityDate, recognitionPeriod, existingRecognitionNo,
       hasCriminalProceedings, criminalProceedingsDetails,
       branches, mineralScopes,
+      officeId,
     } = req.body;
 
     const piaId = existing.piaApplication.id;
     await prisma.$transaction(async (tx) => {
-      if (agencyName?.trim()) {
-        await tx.application.update({ where: { id }, data: { organisation: agencyName.trim(), applicantName: agencyName.trim() } });
-      }
+      await tx.application.update({
+        where: { id },
+        data: {
+          ...(agencyName?.trim() ? { organisation: agencyName.trim(), applicantName: agencyName.trim() } : {}),
+          ...(officeId !== undefined ? { officeId: officeId || null } : {}),
+        },
+      });
       await tx.pIAApplication.update({
         where: { id: piaId },
         data: {
@@ -319,6 +324,18 @@ const list = async (req: AuthRequest, res: Response, next: NextFunction): Promis
   } catch (err) { next(err); }
 };
 
+// GET /pia/masters/eia-offices
+const getMasterEIAOffices = async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const offices = await prisma.office.findMany({
+      where: { type: 'EIA', isActive: true },
+      select: { id: true, name: true, code: true, state: true, city: true },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ success: true, data: offices });
+  } catch (err) { next(err); }
+};
+
 // GET /pia/masters/ports
 const getMasterPorts = async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -358,5 +375,5 @@ async function getFullApplication(id: string) {
 export const piaApplicationController = {
   create, update, updatePartII,
   getById, list,
-  getMasterPorts, getMasterMinerals,
+  getMasterPorts, getMasterMinerals, getMasterEIAOffices,
 };

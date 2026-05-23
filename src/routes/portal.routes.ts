@@ -261,7 +261,8 @@ router.get('/officer/me',
         include: {
           officer: {
             include: {
-              offices: { include: { office: { select: { id: true, name: true, code: true, type: true } } } },
+              offices:    { include: { office: { select: { id: true, name: true, code: true, type: true } } } },
+              categories: { select: { category: true }, orderBy: { category: 'asc' } },
             },
           },
         },

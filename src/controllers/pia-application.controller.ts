@@ -368,7 +368,7 @@ const getMasterDocumentChecklist = async (req: AuthRequest, res: Response, next:
   try {
     const { subType } = req.query;
     const docs = await prisma.pIADocumentChecklist.findMany({
-      where: { isActive: true, ...(subType ? { subType: subType as string } : {}) },
+      where: { isActive: true, ...(subType ? { subType: subType as any } : {}) },
       orderBy: { sortOrder: 'asc' },
     });
     res.json({ success: true, data: docs });

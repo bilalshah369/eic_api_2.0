@@ -14,18 +14,35 @@ datasource db {
 // =============================================================================
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  password     String
-  name         String
-  mobile       String?
-  pan          String?
-  iec          String?
-  gstin        String?
-  role         Role     @default(USER)
-  refreshToken String?
-  officeId     String?  @unique
-  officerId    String?  @unique
+  id                  String   @id @default(uuid())
+  email               String   @unique
+  password            String
+  name                String
+  mobile              String?
+  pan                 String?  @unique
+  iec                 String?
+  gstin               String?
+  role                Role     @default(USER)
+  refreshToken        String?
+  officeId            String?  @unique
+  officerId           String?  @unique
+
+  // Extended registration fields
+  registrationType    String?
+  orgName             String?
+  contactDesignation  String?
+  orgAddress          String?
+  orgStateId          Int?
+  orgStateName        String?
+  orgDistrictId       Int?
+  orgDistrictName     String?
+  orgSubDistrictId    Int?
+  orgSubDistrictName  String?
+  orgCity             String?
+  orgPincode          String?
+  dateOfIncorporation DateTime?
+  fetchedDetails      Json?
+
   office       Office?  @relation(fields: [officeId], references: [id])
   officer      Officer? @relation(fields: [officerId], references: [id])
   applications Application[]
@@ -214,6 +231,73 @@ model OtpVerification {
   createdAt DateTime @default(now())
 
   @@map("otp_verifications")
+  @@schema("public")
+}
+
+// Temporary storage for multi-step signup (cleared after OTP verification)
+model SignupSession {
+  id                  String    @id @default(uuid())
+  sessionId           String    @unique @default(uuid())
+  pan                 String
+  registrationType    String
+  orgName             String
+  dateOfIncorporation DateTime?
+  fetchedDetails      Json?
+  contactName         String?
+  contactDesignation  String?
+  contactEmail        String?
+  contactMobile       String?
+  orgAddress          String?
+  orgStateId          Int?
+  orgStateName        String?
+  orgDistrictId       Int?
+  orgDistrictName     String?
+  orgSubDistrictId    Int?
+  orgSubDistrictName  String?
+  orgCity             String?
+  orgPincode          String?
+  otp                 String?
+  expiresAt           DateTime?
+  createdAt           DateTime  @default(now())
+
+  @@map("signup_sessions")
+  @@schema("public")
+}
+
+// LGD (Local Government Directory) geographic master data
+model LGDState {
+  id        Int           @id @default(autoincrement())
+  name      String        @unique
+  code      String?       @unique
+  isActive  Boolean       @default(true)
+  districts LGDDistrict[]
+
+  @@map("lgd_states")
+  @@schema("public")
+}
+
+model LGDDistrict {
+  id           Int              @id @default(autoincrement())
+  name         String
+  stateId      Int
+  state        LGDState         @relation(fields: [stateId], references: [id])
+  subDistricts LGDSubDistrict[]
+  isActive     Boolean          @default(true)
+
+  @@unique([stateId, name])
+  @@map("lgd_districts")
+  @@schema("public")
+}
+
+model LGDSubDistrict {
+  id         Int         @id @default(autoincrement())
+  name       String
+  districtId Int
+  district   LGDDistrict @relation(fields: [districtId], references: [id])
+  isActive   Boolean     @default(true)
+
+  @@unique([districtId, name])
+  @@map("lgd_sub_districts")
   @@schema("public")
 }
 
@@ -837,6 +921,22 @@ model PIADocumentChecklist {
 
   @@unique([subType, documentType])
   @@map("pia_document_checklist")
+  @@schema("pia")
+}
+
+// Document Master — Part IV enclosures for PIA Recognition application
+model PIADocumentMaster {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  label       String
+  description String?
+  isRequired  Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pia_document_master")
   @@schema("pia")
 }
 

@@ -196,10 +196,57 @@ const deleteStatusMaster = async (req: Request, res: Response) => {
   res.json({ success: true });
 };
 
+// ─── Document Master ─────────────────────────────────────────────────────────
+
+const listDocumentMaster = async (_req: Request, res: Response) => {
+  const items = await prisma.pIADocumentMaster.findMany({ orderBy: { sortOrder: 'asc' } });
+  res.json({ success: true, data: items });
+};
+
+const createDocumentMaster = async (req: Request, res: Response): Promise<void> => {
+  const { code, label, description, isRequired, sortOrder } = req.body;
+  if (!code?.trim() || !label?.trim()) {
+    res.status(400).json({ success: false, message: 'Code and label are required' }); return;
+  }
+  const item = await prisma.pIADocumentMaster.create({
+    data: {
+      code: code.trim(),
+      label: label.trim(),
+      description: description?.trim() || null,
+      isRequired: isRequired ?? true,
+      sortOrder: sortOrder ?? 0,
+    },
+  });
+  res.status(201).json({ success: true, data: item });
+};
+
+const updateDocumentMaster = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { code, label, description, isRequired, sortOrder, isActive } = req.body;
+  const item = await prisma.pIADocumentMaster.update({
+    where: { id },
+    data: {
+      ...(code !== undefined && { code: code.trim() }),
+      ...(label !== undefined && { label: label.trim() }),
+      ...(description !== undefined && { description: description?.trim() || null }),
+      ...(isRequired !== undefined && { isRequired }),
+      ...(sortOrder !== undefined && { sortOrder }),
+      ...(isActive !== undefined && { isActive }),
+    },
+  });
+  res.json({ success: true, data: item });
+};
+
+const deleteDocumentMaster = async (req: Request, res: Response) => {
+  await prisma.pIADocumentMaster.delete({ where: { id: req.params.id } });
+  res.json({ success: true });
+};
+
 export const piaMasterController = {
   listMinerals, createMineral, updateMineral, deleteMineral,
   listPorts, createPort, updatePort, deletePort,
   listFeeConfig, upsertFeeConfig,
   listDocumentChecklist, createDocumentChecklist, updateDocumentChecklist, deleteDocumentChecklist,
   listStatusMaster, createStatusMaster, updateStatusMaster, deleteStatusMaster,
+  listDocumentMaster, createDocumentMaster, updateDocumentMaster, deleteDocumentMaster,
 };

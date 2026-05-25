@@ -4,7 +4,8 @@ import { logger } from '../utils/logger';
 export class AppError extends Error {
   constructor(
     public message: string,
-    public statusCode: number = 500
+    public statusCode: number = 500,
+    public code?: string
   ) {
     super(message);
     this.name = 'AppError';
@@ -20,7 +21,7 @@ export const errorHandler = (
   logger.error(err.message, { stack: err.stack, url: req.url, method: req.method });
 
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({ success: false, message: err.message });
+    res.status(err.statusCode).json({ success: false, message: err.message, ...(err.code ? { code: err.code } : {}) });
     return;
   }
 

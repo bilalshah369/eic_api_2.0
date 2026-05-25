@@ -1,5 +1,8 @@
 import { Response, NextFunction } from 'express';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from '../config/prisma';
+import { env } from '../config/env';
 import { AuthRequest } from '../types';
 
 async function generateAppNo(): Promise<string> {
@@ -352,6 +355,26 @@ const getMasterMinerals = async (_req: AuthRequest, res: Response, next: NextFun
   } catch (err) { next(err); }
 };
 
+// GET /pia/masters/fee-config
+const getMasterFeeConfig = async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const fees = await prisma.pIAFeeConfig.findMany({ where: { isActive: true }, orderBy: { feeType: 'asc' } });
+    res.json({ success: true, data: fees });
+  } catch (err) { next(err); }
+};
+
+// GET /pia/masters/document-checklist?subType=NEW_RECOGNITION
+const getMasterDocumentChecklist = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { subType } = req.query;
+    const docs = await prisma.pIADocumentChecklist.findMany({
+      where: { isActive: true, ...(subType ? { subType: subType as string } : {}) },
+      orderBy: { sortOrder: 'asc' },
+    });
+    res.json({ success: true, data: docs });
+  } catch (err) { next(err); }
+};
+
 // ─── Internal helper ──────────────────────────────────────────────────────────
 async function getFullApplication(id: string) {
   return prisma.application.findUnique({
@@ -372,8 +395,83 @@ async function getFullApplication(id: string) {
   });
 }
 
+// POST /pia/applications/:id/documents
+const uploadDocument = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.file) { res.status(400).json({ success: false, message: 'No file uploaded' }); return; }
+    const { id } = req.params;
+    const { documentType } = req.body;
+    if (!documentType) { res.status(400).json({ success: false, message: 'documentType is required' }); return; }
+
+    const app = await prisma.application.findFirst({
+      where: { id, userId: req.user!.userId },
+      include: { piaApplication: { select: { id: true } } },
+    });
+    if (!app?.piaApplication) { res.status(404).json({ success: false, message: 'Application not found' }); return; }
+
+    const filePath = `pia/${req.file.filename}`;
+    const existing = await prisma.pIADocument.findFirst({ where: { piaApplicationId: app.piaApplication.id, documentType } });
+
+    let doc;
+    if (existing) {
+      const oldFile = path.resolve(env.UPLOAD_DIR, existing.filePath);
+      if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      doc = await prisma.pIADocument.update({
+        where: { id: existing.id },
+        data: { documentName: req.file.originalname, fileName: req.file.filename, filePath, fileSize: req.file.size, mimeType: req.file.mimetype, version: existing.version + 1, status: 'UPLOADED', uploadedAt: new Date() },
+      });
+    } else {
+      doc = await prisma.pIADocument.create({
+        data: { piaApplicationId: app.piaApplication.id, documentType, documentName: req.file.originalname, fileName: req.file.filename, filePath, fileSize: req.file.size, mimeType: req.file.mimetype, status: 'UPLOADED' },
+      });
+    }
+    res.json({ success: true, data: doc });
+  } catch (err) { next(err); }
+};
+
+// GET /pia/applications/:id/documents
+const listDocuments = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const app = await prisma.application.findFirst({ where: { id, userId: req.user!.userId }, include: { piaApplication: { select: { id: true } } } });
+    if (!app?.piaApplication) { res.status(404).json({ success: false, message: 'Application not found' }); return; }
+    const docs = await prisma.pIADocument.findMany({ where: { piaApplicationId: app.piaApplication.id }, orderBy: { uploadedAt: 'asc' } });
+    res.json({ success: true, data: docs });
+  } catch (err) { next(err); }
+};
+
+// DELETE /pia/applications/:id/documents/:docId
+const deleteDocument = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const { id, docId } = req.params;
+    const app = await prisma.application.findFirst({ where: { id, userId: req.user!.userId }, include: { piaApplication: { select: { id: true } } } });
+    if (!app?.piaApplication) { res.status(404).json({ success: false, message: 'Application not found' }); return; }
+    const doc = await prisma.pIADocument.findFirst({ where: { id: docId, piaApplicationId: app.piaApplication.id } });
+    if (!doc) { res.status(404).json({ success: false, message: 'Document not found' }); return; }
+    const oldFile = path.resolve(env.UPLOAD_DIR, doc.filePath);
+    if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+    await prisma.pIADocument.delete({ where: { id: docId } });
+    res.json({ success: true, message: 'Document deleted' });
+  } catch (err) { next(err); }
+};
+
+// DELETE /pia/applications/:id — delete draft application (own only)
+const deleteApplication = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const userId = req.user!.userId;
+    const { id } = req.params;
+    const app = await prisma.application.findFirst({ where: { id, userId } });
+    if (!app) { res.status(404).json({ success: false, message: 'Application not found' }); return; }
+    if (app.status !== 'DRAFT') { res.status(400).json({ success: false, message: 'Only draft applications can be deleted' }); return; }
+    await prisma.application.delete({ where: { id } });
+    res.json({ success: true, message: 'Application deleted' });
+  } catch (err) { next(err); }
+};
+
 export const piaApplicationController = {
   create, update, updatePartII,
   getById, list,
-  getMasterPorts, getMasterMinerals, getMasterEIAOffices,
+  deleteApplication,
+  getMasterPorts, getMasterMinerals, getMasterEIAOffices, getMasterDocumentChecklist, getMasterFeeConfig,
+  uploadDocument, listDocuments, deleteDocument,
 };

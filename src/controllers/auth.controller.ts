@@ -4,6 +4,7 @@ import { otpService } from '../services/otp.service';
 import { auditService } from '../services/audit.service';
 import { sendSuccess } from '../utils/response';
 import { AuthRequest } from '../types';
+import { prisma } from '../config/prisma';
 
 const ip = (req: Request) =>
   (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() ||
@@ -100,7 +101,11 @@ export const authController = {
 
   async me(req: AuthRequest, res: Response, next: NextFunction) {
     try {
-      sendSuccess(res, req.user, 'User info');
+      const user = await prisma.user.findUnique({
+        where: { id: req.user!.userId },
+        select: { id: true, name: true, email: true, role: true, orgName: true, createdAt: true },
+      });
+      sendSuccess(res, user, 'User info');
     } catch (err) {
       next(err);
     }

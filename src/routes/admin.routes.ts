@@ -57,4 +57,9 @@ router.post('/pia/status-master',              piaMasterController.createStatusM
 router.put('/pia/status-master/:id',           piaMasterController.updateStatusMaster);
 router.delete('/pia/status-master/:id',        piaMasterController.deleteStatusMaster);
 
+router.get('/pia/document-master',             piaMasterController.listDocumentMaster);
+router.post('/pia/document-master',            piaMasterController.createDocumentMaster);
+router.put('/pia/document-master/:id',         piaMasterController.updateDocumentMaster);
+router.delete('/pia/document-master/:id',      piaMasterController.deleteDocumentMaster);
+
 export default router;
